@@ -162,6 +162,19 @@ En **"Site configuration" → "Visitor access"**, confirme que esté en
   omite `PUNTOS`, el sistema reparte 100 puntos equitativamente.
 - Al generar la prueba se crea un código de acceso único y un enlace
   directo para compartir con los estudiantes.
+- **Nuevo — Disponibilidad y duración (opcional):** puede definir una
+  fecha de inicio, una fecha final, y/o una duración máxima en minutos.
+  - Si define fecha de inicio y/o final, el estudiante solo puede acceder
+    dentro de ese rango; fuera de esas fechas ve un mensaje claro en vez
+    del examen.
+  - Si define una duración máxima, aparece un cronómetro visible durante
+    la prueba. Al llegar a cero, la prueba **se envía automáticamente**
+    con las respuestas que el estudiante tenga hasta ese momento (no se
+    anula ni se pone en 0 — se califica normalmente lo que alcanzó a
+    responder). El estudiante ve un aviso indicando que se envió por
+    tiempo agotado, y usted lo puede ver también en el informe.
+  - Si deja estos campos vacíos, la prueba funciona igual que antes: sin
+    fecha límite y sin tiempo máximo.
 
 ### Panel del docente — solo sus propias asignaturas
 - Solo aparecen las pruebas creadas con su cuenta, agrupadas por

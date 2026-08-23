@@ -1166,7 +1166,7 @@ function ViewDocenteCrear(){
   if(!APP.docenteAuth){ APP.view='docenteLogin'; setTimeout(render); return document.createElement('div'); }
   const esCuentaReal = !!APP.docenteAuth.uid;
   if(!APP.ctx.draft){
-    APP.ctx.draft = { asignatura:'', profesor: esCuentaReal ? APP.docenteAuth.nombre : '', modulo:'', titulo:'', tipoPrueba:'prueba_corta', instrucciones:'', preguntas:[] };
+    APP.ctx.draft = { asignatura:'', profesor: esCuentaReal ? APP.docenteAuth.nombre : '', modulo:'', titulo:'', tipoPrueba:'prueba_corta', instrucciones:'', fechaInicio:'', fechaFin:'', duracionMinutos:'', preguntas:[] };
   }
   const d = APP.ctx.draft;
   const wrap = document.createElement('div');
@@ -1211,6 +1211,24 @@ function ViewDocenteCrear(){
       <div style="margin-top:14px;">
         <label class="field-label">Instrucciones para el estudiante</label>
         <textarea id="fInstrucciones" style="font-family:'Inter',sans-serif; min-height:70px;" placeholder="Ej: Lea cuidadosamente cada pregunta. Cuenta con un intento único. No abandone la pantalla durante la prueba.">${esc(d.instrucciones)}</textarea>
+      </div>
+      <hr class="divider">
+      <span class="section-label">Disponibilidad y duración (opcional)</span>
+      <div class="grid2" style="margin-top:8px;">
+        <div>
+          <label class="field-label">Fecha de inicio</label>
+          <input type="date" id="fFechaInicio" value="${esc(d.fechaInicio)}">
+        </div>
+        <div>
+          <label class="field-label">Fecha final</label>
+          <input type="date" id="fFechaFin" value="${esc(d.fechaFin)}">
+        </div>
+      </div>
+      <p class="muted" style="margin-top:6px;">Si las deja vacías, la prueba está disponible sin fecha límite. Si solo llena una, esa sola se aplica (solo fecha de inicio, o solo fecha final).</p>
+      <div style="margin-top:12px;">
+        <label class="field-label">Duración máxima de la prueba (minutos)</label>
+        <input type="number" id="fDuracionMinutos" min="1" step="1" placeholder="Ej: 30 (vacío = sin límite de tiempo)" value="${esc(d.duracionMinutos)}">
+        <p class="muted" style="margin-top:6px;">Si la deja vacía, el estudiante puede tomarse el tiempo que quiera. Si la llena, aparecerá un cronómetro y la prueba se enviará automáticamente al agotarse el tiempo.</p>
       </div>
       <p class="muted" style="margin-top:8px;">El valor total de la prueba es fijo: <b>100 puntos</b>, distribuidos automáticamente entre las preguntas cargadas (o según los puntos indicados en el documento).</p>
     </div>
@@ -1273,6 +1291,9 @@ RESPUESTA: conocimiento de embarque</pre>
     document.getElementById('fTitulo').oninput = e=> d.titulo = e.target.value;
     document.getElementById('fTipo').onchange = e=> d.tipoPrueba = e.target.value;
     document.getElementById('fInstrucciones').oninput = e=> d.instrucciones = e.target.value;
+    document.getElementById('fFechaInicio').oninput = e=> d.fechaInicio = e.target.value;
+    document.getElementById('fFechaFin').oninput = e=> d.fechaFin = e.target.value;
+    document.getElementById('fDuracionMinutos').oninput = e=> d.duracionMinutos = e.target.value;
     document.getElementById('btnAddManual').onclick = ()=>{
       d.preguntas.push({ id:uid(8), texto:'', tipo:'seleccion', puntos:null, opciones:['',''], respuesta:'' });
       renderListaPreguntas();
@@ -1422,6 +1443,8 @@ RESPUESTA: conocimiento de embarque</pre>
     if(!d.asignatura.trim()) errs.push('Indique la asignatura.');
     if(!d.modulo.trim()) errs.push('Indique el módulo.');
     if(!d.preguntas.length) errs.push('Agregue al menos una pregunta.');
+    if(d.fechaInicio && d.fechaFin && d.fechaFin < d.fechaInicio) errs.push('La fecha final no puede ser anterior a la fecha de inicio.');
+    if(d.duracionMinutos && (isNaN(parseInt(d.duracionMinutos,10)) || parseInt(d.duracionMinutos,10) <= 0)) errs.push('La duración máxima debe ser un número de minutos mayor a 0, o déjela vacía si no quiere límite de tiempo.');
     d.preguntas.forEach((p,i)=>{
       if(!p.texto.trim()) errs.push(`La pregunta ${i+1} no tiene enunciado.`);
       if(!p.respuesta || !String(p.respuesta).trim()) errs.push(`La pregunta ${i+1} no tiene respuesta correcta definida.`);
@@ -1445,6 +1468,9 @@ RESPUESTA: conocimiento de embarque</pre>
       titulo: d.titulo.trim() || d.modulo.trim(),
       tipoPrueba: d.tipoPrueba,
       instrucciones: d.instrucciones.trim(),
+      fechaInicio: d.fechaInicio || null,
+      fechaFin: d.fechaFin || null,
+      duracionMinutos: d.duracionMinutos ? parseInt(d.duracionMinutos,10) : null,
       preguntas: preguntasFinal,
       valorTotal: 100,
       codigo: genCodigo(d.asignatura || d.modulo),
@@ -1519,6 +1545,13 @@ function ViewDocenteReporte(){
         </div>
         <span class="pill">📚 ${esc(test.asignatura||'Sin asignatura')} · ${test.tipoPrueba==='parcial'?'Parcial Integrador':'Prueba Corta'} · Código ${esc(test.codigo)}</span>
       </div>
+      ${(test.fechaInicio || test.fechaFin || test.duracionMinutos) ? `<p class="muted" style="margin-bottom:10px;">
+        ${test.fechaInicio ? `📅 Disponible desde: <b>${esc(test.fechaInicio)}</b>` : ''}
+        ${test.fechaInicio && test.fechaFin ? ' · ' : ''}
+        ${test.fechaFin ? `Hasta: <b>${esc(test.fechaFin)}</b>` : ''}
+        ${(test.fechaInicio || test.fechaFin) && test.duracionMinutos ? ' · ' : ''}
+        ${test.duracionMinutos ? `⏱ Duración máxima: <b>${test.duracionMinutos} min</b>` : ''}
+      </p>` : ''}
       <div class="card">
         ${!intentos.length ? `<div class="empty-state"><h3>Sin intentos registrados</h3><p>Aún ningún estudiante ha presentado esta prueba.</p></div>` : `
         <table class="report">
@@ -1789,11 +1822,39 @@ function ViewEstAcceso(){
 function ViewEstDatos(){
   const test = APP.ctx.test;
   if(!test){ APP.view='estAcceso'; setTimeout(render); return document.createElement('div'); }
+
+  const hoyISO = todayISO();
+  const fueraDeFecha = (test.fechaInicio && hoyISO < test.fechaInicio) || (test.fechaFin && hoyISO > test.fechaFin);
+  if(fueraDeFecha){
+    const wrap = document.createElement('div');
+    wrap.appendChild(ManifestHeader(test.asignatura, test.titulo, test.profesor));
+    const shell = document.createElement('div');
+    shell.className='shell';
+    shell.style.maxWidth='520px';
+    const mensaje = (test.fechaInicio && hoyISO < test.fechaInicio)
+      ? `Esta prueba estará disponible a partir del <b>${esc(test.fechaInicio)}</b>. Todavía no puede presentarla.`
+      : `El plazo para presentar esta prueba venció el <b>${esc(test.fechaFin)}</b>. Ya no está disponible.`;
+    shell.innerHTML = `
+      <div class="card">
+        <span class="section-label">Acceso no disponible</span>
+        <div class="notice warn" style="margin-top:10px;">${mensaje}</div>
+        <button class="btn btn-ghost btn-block" id="btnVolverFecha" style="margin-top:16px;">Volver al inicio</button>
+      </div>`;
+    wrap.appendChild(shell);
+    setTimeout(()=>{
+      document.getElementById('btnVolverFecha').onclick = ()=>{ APP.view='home'; APP.ctx={}; render(); };
+    });
+    return wrap;
+  }
+
   const wrap = document.createElement('div');
   wrap.appendChild(ManifestHeader(test.asignatura, test.titulo, test.profesor));
   const shell = document.createElement('div');
   shell.className='shell';
   shell.style.maxWidth='560px';
+  const disponibilidadTxt = (test.fechaInicio || test.fechaFin)
+    ? `Disponible ${test.fechaInicio?`desde el <b>${esc(test.fechaInicio)}</b>`:''}${test.fechaInicio && test.fechaFin?' ':''}${test.fechaFin?`hasta el <b>${esc(test.fechaFin)}</b>`:''}.`
+    : '';
   shell.innerHTML = `
     <div class="card">
       <div class="flex-between">
@@ -1810,8 +1871,10 @@ function ViewEstDatos(){
           <li>Cuenta con un único intento para esta prueba.</li>
           <li>Si sale de esta pantalla o cambia de aplicación mientras la prueba está en curso, su examen se anulará automáticamente con calificación <b>0</b> y el código dejará de funcionar para usted, sin afectar a los demás estudiantes.</li>
           <li>Las preguntas y opciones se presentan en orden aleatorio.</li>
+          ${test.duracionMinutos ? `<li>Tiene un máximo de <b>${test.duracionMinutos} minutos</b> para completarla desde que la inicie. Al agotarse el tiempo, se enviará automáticamente con las respuestas que tenga hasta ese momento.</li>` : ''}
           <li>Al finalizar recibirá su calificación y retroalimentación de inmediato.</li>
         </ul>
+        ${disponibilidadTxt ? `<p style="margin-top:8px;">${disponibilidadTxt}</p>` : ''}
       </div>
 
       <hr class="divider">
@@ -1844,6 +1907,12 @@ function ViewEstDatos(){
       if(!nombre || !cedula || !fecha){
         errBox.style.display='block';
         errBox.textContent='Complete su nombre, cédula y fecha para continuar.';
+        return;
+      }
+      const hoyChequeo = todayISO();
+      if((test.fechaInicio && hoyChequeo < test.fechaInicio) || (test.fechaFin && hoyChequeo > test.fechaFin)){
+        APP.view = 'estDatos';
+        render();
         return;
       }
       const key = 'intento:'+test.id+':'+cedula;
@@ -1881,6 +1950,7 @@ function ViewEstDatos(){
       APP.ctx.qIndex = 0;
       APP.ctx.respuestasTemp = {};
       APP.ctx.tiemposTemp = {};
+      TIEMPO_AGOTADO_ENVIANDO = false;
       APP.view = 'estPrueba';
       render();
     };
@@ -1894,6 +1964,8 @@ function ViewEstDatos(){
 let ANTI_CHEAT_BOUND = false;
 let ANTI_CHEAT_TRIGGERED = false;
 let Q_START_TS = 0;
+let EXAM_TIMER_HANDLE = null;
+let TIEMPO_AGOTADO_ENVIANDO = false;
 
 function ViewEstPrueba(){
   const test = APP.ctx.test;
@@ -1921,6 +1993,7 @@ function ViewEstPrueba(){
         <div class="mono muted" style="font-size:12px;">${esc(APP.ctx.intento.nombre)} · C.I. ${esc(APP.ctx.intento.cedula)}</div>
         <div class="qtimer"><span class="led"></span> Prueba en curso — no cambie de pantalla</div>
       </div>
+      ${test.duracionMinutos ? `<div id="cronometroPrueba" class="mono" style="margin-top:10px; text-align:right; font-size:15px; font-weight:700; color:var(--navy-deep);">⏱ Calculando tiempo restante…</div>` : ''}
     </div>
     <div class="route-track">${track}</div>
     <div class="card">
@@ -1970,6 +2043,34 @@ function ViewEstPrueba(){
         render();
       }
     };
+
+    if(EXAM_TIMER_HANDLE){ clearInterval(EXAM_TIMER_HANDLE); EXAM_TIMER_HANDLE = null; }
+    if(test.duracionMinutos){
+      const deadline = APP.ctx.intento.horaInicioTs + test.duracionMinutos*60000;
+      const actualizarCronometro = async ()=>{
+        const el = document.getElementById('cronometroPrueba');
+        const restanteMs = deadline - Date.now();
+        if(restanteMs <= 0){
+          if(EXAM_TIMER_HANDLE){ clearInterval(EXAM_TIMER_HANDLE); EXAM_TIMER_HANDLE = null; }
+          if(el) el.textContent = '⏱ Tiempo agotado — enviando su prueba…';
+          if(APP.view === 'estPrueba' && !TIEMPO_AGOTADO_ENVIANDO){
+            TIEMPO_AGOTADO_ENVIANDO = true;
+            registrarTiempo(pregunta);
+            await finalizarPrueba(true);
+          }
+          return;
+        }
+        if(el){
+          const totalSeg = Math.floor(restanteMs/1000);
+          const mm = String(Math.floor(totalSeg/60)).padStart(2,'0');
+          const ss = String(totalSeg%60).padStart(2,'0');
+          el.textContent = `⏱ Tiempo restante: ${mm}:${ss}`;
+          el.style.color = totalSeg <= 60 ? 'var(--danger)' : 'var(--navy-deep)';
+        }
+      };
+      actualizarCronometro();
+      EXAM_TIMER_HANDLE = setInterval(actualizarCronometro, 1000);
+    }
   });
 
   bindAntiCheat();
@@ -2000,6 +2101,7 @@ function bindAntiCheat(){
 async function anularPorAbandono(){
   const intento = APP.ctx.intento;
   if(!intento || intento.estado!=='en_progreso') return;
+  if(EXAM_TIMER_HANDLE){ clearInterval(EXAM_TIMER_HANDLE); EXAM_TIMER_HANDLE = null; }
   intento.estado='anulado';
   intento.calificacion=0;
   intento.motivoAnulacion='El estudiante salió de la aplicación o cambió de pantalla durante la prueba.';
@@ -2012,7 +2114,8 @@ async function anularPorAbandono(){
   render();
 }
 
-async function finalizarPrueba(){
+async function finalizarPrueba(porTiempoAgotado){
+  if(EXAM_TIMER_HANDLE){ clearInterval(EXAM_TIMER_HANDLE); EXAM_TIMER_HANDLE = null; }
   const test = APP.ctx.test;
   const intento = APP.ctx.intento;
   const respuestas = APP.ctx.preguntas.map(p=>({
@@ -2028,6 +2131,7 @@ async function finalizarPrueba(){
   intento.respuestas = respuestas;
   intento.calificacion = Math.round(puntaje*100)/100;
   intento.estado = 'finalizado';
+  intento.enviadoPorTiempo = !!porTiempoAgotado;
   intento.horaFin = nowTimeStr();
   intento.horaFinTs = Date.now();
   intento.duracionSeg = (intento.horaFinTs - intento.horaInicioTs)/1000;
@@ -2059,6 +2163,7 @@ function ViewEstResultado(){
   const nIncorrectas = revisadas.length - nCorrectas;
 
   shell.innerHTML = `
+    ${intento.enviadoPorTiempo ? `<div class="notice warn no-print" style="margin-bottom:14px;">⏱ Su prueba se envió automáticamente porque se agotó el tiempo máximo permitido.</div>` : ''}
     <div class="card score-hero" id="printArea">
       <div class="ring" style="--pct:${pct};"><div class="inner"><span class="num">${intento.calificacion.toFixed(1)}</span><span class="of">DE 100 PTS</span></div></div>
       <h2 style="font-size:19px;">${esc(intento.nombre)}</h2>
